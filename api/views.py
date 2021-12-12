@@ -3,11 +3,15 @@ from django.db.models import (
     CharField,
     Count,
     Exists,
+    F,
+    Func,
     IntegerField,
     OuterRef,
     Max,
     Prefetch,
+    Q,
     Subquery,
+    Sum,
     When,
     Value,
 )
@@ -17,10 +21,58 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from api.models import Product, Tag, PurchaseHistory
-from api.serializers import ProductSerializer
+from api.serializers import ProductSerializer, TagSerializer
 
 
-class PurchaseSummaryView(GenericAPIView):
+class PurchaseYearSummaryView(GenericAPIView):
+    queryset = PurchaseHistory.objects
+
+    def get(self, _: Request, product_id: int, year: int):
+        data = self.get_queryset()
+
+        return Response(data=data)
+
+    def get_queryset(self):
+        queryset = super(PurchaseYearSummaryView, self).get_queryset()
+
+        return queryset.annotate(
+            year=Func(
+                F('purchase_date'),
+                function='YEAR',
+                template="%(function)s(%(expressions)s)",
+                output_field=IntegerField(),
+            ),
+            year_month=Func(
+                F('purchase_date'),
+                function='DATE_FORMAT',
+                template="%(function)s(%(expressions)s, '%%%%Y/%%%%m')",
+                output_field=CharField(),
+            ),
+        ).filter(
+            product_id=self.kwargs.get('product_id'),
+            year=self.kwargs.get('year'),
+        ).annotate(
+            total=Sum('price'),
+        ).order_by('year_month').values('year_month', 'total')
+
+
+class PurchasePriceSummaryView(GenericAPIView):
+    queryset = PurchaseHistory.objects
+
+    def get(self, _: Request):
+        data = self.get_queryset()
+
+        return Response(data=data)
+
+    def get_queryset(self):
+        queryset = super(PurchasePriceSummaryView, self).get_queryset()
+
+        return queryset.select_related('product').values('product_id', 'product__name').annotate(
+            total=Coalesce(Sum('price'), 0),
+        ).order_by('-total')
+
+
+class ProductCountSummaryView(GenericAPIView):
     queryset = Product.objects
 
     def get(self, _: Request):
@@ -29,7 +81,7 @@ class PurchaseSummaryView(GenericAPIView):
         return Response(data=data)
 
     def get_queryset(self):
-        queryset = super(PurchaseSummaryView, self).get_queryset()
+        queryset = super(ProductCountSummaryView, self).get_queryset()
 
         # Subquery を使ったサブクエリを作成し count の結果を annotate で紐づける
         subquery = PurchaseHistory.objects.filter(
@@ -123,3 +175,20 @@ class MaxPriceProductView(GenericAPIView):
         queryset.query.set_group_by('type')
 
         return queryset.values('type_name', 'max_price').all()
+
+
+class TagListAPIView(ListAPIView):
+    queryset = Tag.objects
+    serializer_class = TagSerializer
+
+    def get_queryset(self):
+        queryset = super(TagListAPIView, self).get_queryset()
+
+        code = self.request.query_params.get('code')
+
+        if code:
+            return queryset.select_related('product').filter(
+                Q(code__contains=code) | Q(code__isnull=True),
+            )
+
+        return queryset

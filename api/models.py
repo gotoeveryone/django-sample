@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class Product(models.Model):
@@ -33,6 +34,7 @@ class PurchaseHistory(models.Model):
     product = models.ForeignKey('Product', models.PROTECT, related_name='purchase_histories')
     count = models.IntegerField(default=1)
     price = models.IntegerField()
+    purchase_date = models.DateField(default=timezone.now)
 
     def __str__(self):
         return f'{self.product.name}: {self.count}個'
