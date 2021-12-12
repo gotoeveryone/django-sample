@@ -21,12 +21,12 @@ $ docker-compose up
 ## Migration
 
 ```console
-$ docker-compose exec backend pipenv run manage makemigrations # make migrations
-$ docker-compose exec backend pipenv run manage migrate
+$ docker-compose exec app pipenv run manage makemigrations # make migrations
+$ docker-compose exec app pipenv run manage migrate
 ```
 
 ## Create administrator
 
 ```console
-$ docker-compose exec backend pipenv run manage createsuperuser
+$ docker-compose exec app pipenv run manage createsuperuser
 ```
