@@ -1,0 +1,23 @@
+version: '3'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: pipenv run manage runserver 0.0.0.0:8000
+    volumes:
+      - ./:/var/app
+    ports:
+      - 8000:8000
+    depends_on:
+      - database
+  database:
+    image: mysql:8.0.23
+    volumes:
+      - ./database:/var/lib/mysql
+    ports:
+      - 3306:3306
+    environment:
+      TZ: 'Asia/Tokyo'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+      MYSQL_DATABASE: 'sample'
