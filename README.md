@@ -1,5 +1,7 @@
 # django-sample
 
+![Build Status](https://github.com/gotoeveryone/django-sample/workflows/Build/badge.svg)
+
 ## Requirements
 
 - Docker

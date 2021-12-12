@@ -16,4 +16,6 @@ autopep8 = "*"
 python_version = "3.9"
 
 [scripts]
+format = "autopep8 --in-place --recursive ."
+lint = "pycodestyle ."
 manage = "python manage.py"

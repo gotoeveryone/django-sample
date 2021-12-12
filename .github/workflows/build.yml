@@ -1,0 +1,31 @@
+name: Build
+
+on: push
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9.6
+
+      - name: Setup pipenv
+        run: pip install pipenv
+
+      - name: Cache virtualenvs
+        uses: actions/cache@v1
+        id: app_cache
+        with:
+          path: ~/.local/share/virtualenvs
+          key: ${{ runner.OS }}-lib-${{ hashFiles('**/Pipfile.lock') }}
+
+      - name: Install dependencies
+        if: steps.app_cache.outputs.cache-hit != 'true'
+        run: pipenv install -d
+
+      - name: Execute lint
+        run: pipenv run lint
