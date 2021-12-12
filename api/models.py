@@ -17,6 +17,7 @@ class Product(models.Model):
 
 
 class Tag(models.Model):
+    parent = models.ForeignKey('self', models.PROTECT, blank=True, null=True, related_name='children')
     product = models.ForeignKey('Product', models.PROTECT, related_name='tags')
     code = models.CharField(max_length=30, blank=True, null=True)
     name = models.CharField(max_length=30)

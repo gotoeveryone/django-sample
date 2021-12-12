@@ -4,11 +4,14 @@ from api.models import Product, Tag
 
 class ProductSerializer(serializers.ModelSerializer):
     """ 商品 """
-    type_name = serializers.CharField()
+    type_name = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
 
     def get_tags(self, instance: Product):
         return [t.name for t in instance.tags.all()]
+
+    def get_type_name(self, instance: Product):
+        return instance.type_name if hasattr(instance, 'type_name') else None
 
     class Meta:
         model = Product

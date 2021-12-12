@@ -15,8 +15,9 @@ from django.db.models import (
     When,
     Value,
 )
+from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce
-from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.generics import GenericAPIView, ListAPIView, RetrieveAPIView
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -67,7 +68,9 @@ class PurchasePriceSummaryView(GenericAPIView):
     def get_queryset(self):
         queryset = super(PurchasePriceSummaryView, self).get_queryset()
 
-        return queryset.select_related('product').values('product_id', 'product__name').annotate(
+        return queryset.select_related('product').values(
+            'product_id', 'product__name',
+        ).annotate(
             total=Coalesce(Sum('price'), 0),
         ).order_by('-total')
 
@@ -108,16 +111,42 @@ class ProductListAPIView(ListAPIView):
     def get_queryset(self):
         queryset = super(ProductListAPIView, self).get_queryset()
 
+        tag_subquery = Tag.objects.filter(
+            product_id=OuterRef('pk'),
+        ).exclude(
+            code='test',
+        )
+
+        # タグの指定がある場合、自身を親に持つタグを再帰的に検索して、いずれかが紐づく商品に絞り込む
+        tag = self.request.query_params.get('tag')
+        if tag:
+            tag_subquery = tag_subquery.filter(
+                id__in=RawSQL("""
+                    with recursive tag_group(id, parent_id) as (
+                        select
+                            id, parent_id
+                        from
+                            tags where code = %s
+                        union all
+                        select
+                            tags.id, tags.parent_id
+                        from
+                            tags
+                        inner join tag_group on tags.parent_id = tag_group.id
+                    )
+                    select
+                        tag_group.id
+                    from
+                        tag_group
+                """, [tag]),
+            )
+
         # Exists を使ったフィールドを annotate を使ってマッピングする
         queryset = queryset.prefetch_related(
             Prefetch('tags'),
         ).annotate(
             has_tag=Exists(
-                Tag.objects.filter(
-                    product_id=OuterRef('pk'),
-                ).exclude(
-                    code='test',
-                ).values('id'),  # values は指定したフィールドのみを辞書型で取り出すが、ここでは select するフィールドとして使う
+                tag_subquery.values('id'),  # values は指定したフィールドのみを辞書型で取り出すが、ここでは select するフィールドとして使う
             ),
         ).filter(has_tag=True)
 
